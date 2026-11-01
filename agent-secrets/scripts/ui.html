@@ -1,0 +1,168 @@
+<!doctype html><html><head><meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline' 'unsafe-eval'">
+<title>Store secret</title>
+<style>
+:root{--bg:#0d0b1a;--tx:#f1effa;--mut:#a9a4c4;--ln:rgba(255,255,255,.11);--field:rgba(255,255,255,.06);--glass:rgba(255,255,255,.055);--err:#ff8fa3;--ac:#a78bfa;--ac2:#5eead4;color-scheme:dark}
+body[data-env=local]{--ac:#60a5fa;--ac2:#67e8f9}
+body[data-env=dev]{--ac:#34d399;--ac2:#a3e635}
+body[data-env=stg]{--ac:#fbbf24;--ac2:#fb923c}
+body[data-env=prd]{--ac:#fb7185;--ac2:#f97316}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--tx);font:13px/1.45 -apple-system,system-ui,sans-serif;overflow:hidden}
+.aurora{position:fixed;inset:-20%;z-index:0;pointer-events:none;filter:blur(60px);opacity:.6}
+.aurora i{position:absolute;border-radius:50%;transition:background .7s ease}
+.aurora i:nth-child(1){width:55%;height:50%;left:0;top:0;background:var(--ac);opacity:.55;animation:drift1 16s ease-in-out infinite alternate}
+.aurora i:nth-child(2){width:50%;height:48%;right:0;bottom:4%;background:var(--ac2);opacity:.38;animation:drift2 20s ease-in-out infinite alternate}
+.aurora i:nth-child(3){width:38%;height:38%;right:12%;top:8%;background:#6d28d9;opacity:.5;animation:drift1 24s ease-in-out infinite alternate-reverse}
+@keyframes drift1{to{transform:translate(18%,22%) scale(1.15)}}
+@keyframes drift2{to{transform:translate(-20%,-16%) scale(.9)}}
+form{position:relative;z-index:1;display:flex;flex-direction:column;height:100%;animation:rise .5s cubic-bezier(.2,.8,.2,1) both}
+@keyframes rise{from{opacity:0;transform:translateY(12px) scale(.985)}}
+header{display:flex;gap:12px;align-items:center;padding:20px 24px 12px}
+.badge{flex:none;width:40px;height:40px;border-radius:12px;display:grid;place-items:center;background:linear-gradient(135deg,var(--ac),var(--ac2));color:#120f22;box-shadow:0 6px 22px -6px var(--ac);animation:pulse 3.4s ease-in-out infinite;transition:background .5s}
+.badge svg{width:20px;height:20px}
+@keyframes pulse{50%{box-shadow:0 6px 30px -2px var(--ac)}}
+h1{margin:0;font-size:18px;font-weight:700;letter-spacing:-.01em}
+header p{margin:1px 0 0;color:var(--mut);font-size:12px}
+main{flex:1;overflow:auto;padding:4px 24px 14px}
+main>*{animation:rise .5s cubic-bezier(.2,.8,.2,1) both}
+main>:nth-child(2){animation-delay:.05s}main>:nth-child(3){animation-delay:.1s}main>:nth-child(4){animation-delay:.15s}main>:nth-child(5){animation-delay:.2s}main>:nth-child(6){animation-delay:.25s}
+.secret{position:relative;background:var(--glass);border:1px solid var(--ln);border-radius:14px;padding:14px;margin-bottom:16px;-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);transition:border-color .25s,box-shadow .25s}
+.secret:focus-within{border-color:var(--ac);box-shadow:0 0 0 1px var(--ac),0 12px 34px -14px var(--ac)}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px}
+.one{grid-template-columns:1fr}
+label{display:block;font-size:11px;font-weight:600;letter-spacing:.02em;color:var(--mut);margin-bottom:4px;transition:color .2s}
+div:focus-within>label{color:var(--ac)}
+input,select,textarea{width:100%;font:inherit;color:var(--tx);background:var(--field);border:1px solid var(--ln);border-radius:9px;padding:8px 10px;outline:none;transition:border-color .2s,box-shadow .2s,background .2s}
+input:hover,select:hover,textarea:hover{background:rgba(255,255,255,.09)}
+input:focus,select:focus,textarea:focus{border-color:var(--ac);background:rgba(255,255,255,.1);box-shadow:0 0 0 3px color-mix(in srgb,var(--ac) 26%,transparent)}
+input::placeholder,textarea::placeholder{color:#7a7596}
+select{-webkit-appearance:none;appearance:none;padding-right:26px;background-image:linear-gradient(45deg,transparent 50%,var(--mut) 50%),linear-gradient(135deg,var(--mut) 50%,transparent 50%);background-position:calc(100% - 15px) 55%,calc(100% - 10px) 55%;background-size:5px 5px;background-repeat:no-repeat}
+select option{background:#1b1730;color:var(--tx)}
+input:disabled{opacity:.4}
+textarea{resize:vertical;min-height:58px}
+#secretLine{font-size:15px;padding:10px 12px;letter-spacing:.04em}
+#secretArea{min-height:110px;font:12px ui-monospace,Menlo,monospace}
+#secretArea.masked{-webkit-text-security:disc}
+.tools{display:flex;gap:14px;margin-top:8px;align-items:center}
+.link{background:none;border:0;color:var(--ac);font:inherit;font-weight:600;padding:0;cursor:pointer;transition:opacity .2s}
+.link:hover{opacity:.75}
+.check{display:flex;gap:6px;align-items:center;margin-top:6px;color:var(--mut);font-size:12px}
+.check input{width:auto;accent-color:var(--ac)}
+summary{cursor:pointer;color:var(--mut);font-weight:600;padding:4px 0 8px;transition:color .2s}
+summary:hover{color:var(--tx)}
+details[open]>:not(summary){animation:rise .3s ease both}
+footer{position:relative;z-index:1;display:flex;align-items:center;gap:10px;padding:12px 24px;border-top:1px solid var(--ln);background:rgba(13,11,26,.55);-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px)}
+#msg{flex:1;color:var(--mut);font-size:12px}
+#msg.err{color:var(--err);animation:shake .4s ease}
+@keyframes shake{20%{transform:translateX(-5px)}40%{transform:translateX(5px)}60%{transform:translateX(-3px)}80%{transform:translateX(3px)}}
+button.b{font:inherit;font-weight:600;padding:8px 16px;border-radius:9px;border:1px solid var(--ln);background:var(--field);color:var(--tx);cursor:pointer;transition:transform .15s,box-shadow .2s,filter .2s,background .2s}
+button.b:hover{background:rgba(255,255,255,.12);transform:translateY(-1px)}
+button.b:active{transform:translateY(1px) scale(.98)}
+button.p{position:relative;overflow:hidden;border:0;color:#120f22;background:linear-gradient(120deg,var(--ac),var(--ac2));box-shadow:0 6px 20px -8px var(--ac)}
+button.p:hover{background:linear-gradient(120deg,var(--ac),var(--ac2));filter:brightness(1.1);box-shadow:0 10px 26px -8px var(--ac)}
+button.p::after{content:"";position:absolute;inset:0;background:linear-gradient(100deg,transparent 35%,rgba(255,255,255,.45) 50%,transparent 65%);transform:translateX(-110%)}
+button.p:hover::after{transition:transform .7s;transform:translateX(110%)}
+button:disabled{opacity:.55}
+body.prd h1::after{content:"PRODUCTION";margin-left:8px;padding:2px 7px;border-radius:99px;font-size:10px;font-weight:800;letter-spacing:.06em;color:#fff;background:#e11d48;vertical-align:2px;animation:pulseRed 1.8s ease-in-out infinite}
+@keyframes pulseRed{50%{box-shadow:0 0 0 5px rgba(225,29,72,.25)}}
+#done{position:fixed;inset:0;z-index:5;display:grid;place-content:center;justify-items:center;gap:12px;background:rgba(13,11,26,.8);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);opacity:0;pointer-events:none;transition:opacity .25s;font-size:16px;font-weight:700}
+#done.on{opacity:1}
+#done svg{width:76px;height:76px;color:var(--ac)}
+#done circle,#done path{fill:none;stroke:currentColor;stroke-width:3;stroke-linecap:round;stroke-linejoin:round}
+#done circle{stroke-dasharray:152;stroke-dashoffset:152}
+#done path{stroke-dasharray:44;stroke-dashoffset:44}
+#done.on circle{animation:draw .45s ease forwards}
+#done.on path{animation:draw .3s .35s ease forwards}
+@keyframes draw{to{stroke-dashoffset:0}}
+::-webkit-scrollbar{width:8px}::-webkit-scrollbar-thumb{background:rgba(255,255,255,.14);border-radius:8px}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}#done circle,#done path{stroke-dashoffset:0}}
+</style></head><body>
+<div class="aurora"><i></i><i></i><i></i></div>
+<form id="f" autocomplete="off" novalidate>
+<header><div class="badge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="10" rx="2.5"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></div><div><h1>Store a secret</h1><p>Saved only to your <span id="store">system keyring</span>. Claude never sees the value.</p></div></header>
+<main>
+<div class="secret">
+ <label for="secretLine" id="secretLabel">Secret value</label>
+ <input id="secretLine" type="password" spellcheck="false" autocomplete="off">
+ <textarea id="secretArea" class="masked" spellcheck="false" autocomplete="off" hidden></textarea>
+ <div class="tools"><button type="button" class="link" id="reveal">Show</button><button type="button" class="link" id="load">Load from file…</button></div>
+</div>
+<div class="row"><div><label for="name">Name</label><input id="name" required spellcheck="false" placeholder="openai-api-key"></div>
+<div><label for="type">Type</label><select id="type"></select></div></div>
+<div class="row one"><div><label for="description">Description</label><textarea id="description" placeholder="What it is and what uses it"></textarea></div></div>
+<div class="row"><div><label for="env">Environment</label><select id="env"></select></div>
+<div><label for="provider">Service / provider</label><input id="provider" spellcheck="false" placeholder="OpenAI, AWS, Stripe"></div></div>
+<div class="row"><div><label for="expires">Expires</label><input id="expires" type="date"><div class="check"><input id="never" type="checkbox"><span>Never expires</span></div></div>
+<div><label for="env_var">Environment variable</label><input id="env_var" spellcheck="false" placeholder="OPENAI_API_KEY"></div></div>
+<details id="more"><summary>More details</summary>
+<div class="row"><div><label for="username">Username / account</label><input id="username" spellcheck="false"></div>
+<div><label for="url">URL / host</label><input id="url" spellcheck="false"></div></div>
+<div class="row"><div><label for="project">Project</label><input id="project" spellcheck="false"></div>
+<div><label for="owner">Owner</label><input id="owner" spellcheck="false"></div></div>
+<div class="row"><div><label for="rotate_days">Rotate every (days)</label><input id="rotate_days" type="number" min="1"></div>
+<div><label for="tags">Tags (comma separated)</label><input id="tags" spellcheck="false"></div></div>
+<div class="row one"><div><label for="scopes">Scopes / permissions</label><input id="scopes" spellcheck="false" placeholder="read:org, repo"></div></div>
+<div class="row one"><div><label for="notes">Notes (never put secrets here)</label><textarea id="notes"></textarea></div></div>
+</details>
+</main>
+<footer><div id="msg"></div><button type="button" class="b" id="cancel">Cancel</button><button type="button" class="b p" id="save">Store secret</button></footer>
+</form>
+<div id="done"><svg viewBox="0 0 52 52"><circle cx="26" cy="26" r="24"/><path d="M15 27l8 8 15-16"/></svg><div>Secret stored</div></div>
+<script>
+const $=i=>document.getElementById(i);
+const FIELDS=['name','type','description','env','provider','expires','env_var','username','url','project','owner','rotate_days','tags','scopes','notes'];
+let cfg={types:[],envs:[]},shown=false,busy=false,exists=false;
+const multi=()=>(cfg.types.find(t=>t.id===$('type').value)||{}).multiline;
+const box=()=>multi()?$('secretArea'):$('secretLine');
+function msg(t,e){const m=$('msg');m.textContent=t||'';m.className='';if(e){void m.offsetWidth;m.className='err'}}
+function layout(keep){
+ const v=keep?box2Value():'';
+ const m=multi();$('secretArea').hidden=!m;$('secretLine').hidden=!!m;
+ if(keep){$('secretLine').value=m?'':v;$('secretArea').value=m?v:''}
+ $('secretLine').type=shown?'text':'password';$('secretArea').className=shown?'':'masked';$('reveal').textContent=shown?'Hide':'Show';
+ document.body.classList.toggle('prd',$('env').value==='prd');document.body.dataset.env=$('env').value;
+}
+function box2Value(){return $('secretArea').value||$('secretLine').value}
+async function checkExists(){
+ const n=$('name').value.trim();if(!n)return;
+ exists=await pywebview.api.exists(n,$('env').value);
+ $('save').textContent=exists?'Replace secret':'Store secret';
+ msg(exists?'A secret with this name and environment exists. Saving replaces it.':'',false);
+}
+function fieldVal(i){return $(i).value.trim()}
+async function submit(e){
+ e&&e.preventDefault();if(busy)return;
+ const secret=box().value;
+ if(!secret){msg('Enter the secret value.',true);box().focus();return}
+ if(!fieldVal('name')){msg('Give it a name.',true);$('name').focus();return}
+ const meta={};FIELDS.forEach(k=>meta[k]=fieldVal(k));meta.never_expires=$('never').checked;
+ busy=true;$('save').disabled=true;msg('Saving…');
+ const r=await pywebview.api.submit(meta,secret,exists);
+ if(r&&r.error){busy=false;$('save').disabled=false;msg(r.error,true)}else{msg('');$('done').classList.add('on')}
+}
+async function init(){
+ cfg=await pywebview.api.config();
+ $('store').textContent=cfg.store_name;
+ $('type').innerHTML='';cfg.types.forEach(t=>{const o=new Option(t.label,t.id);$('type').add(o)});
+ cfg.envs.forEach(t=>$('env').add(new Option(t.label,t.id)));
+ const p=cfg.prefill||{};
+ FIELDS.forEach(k=>{if(p[k]!==undefined&&p[k]!==null)$(k).value=p[k]});
+ $('never').checked=!!p.never_expires;$('expires').disabled=$('never').checked;
+ if(['username','url','project','owner','rotate_days','tags','scopes','notes'].some(k=>p[k]))$('more').open=true;
+ layout(false);await checkExists();box().focus();
+}
+$('f').addEventListener('submit',e=>e.preventDefault());$('save').onclick=()=>submit();
+$('type').onchange=()=>{layout(true);box().focus()};
+$('env').onchange=()=>{layout(true);checkExists()};
+$('name').onblur=checkExists;
+$('never').onchange=()=>{$('expires').disabled=$('never').checked;if($('never').checked)$('expires').value=''};
+$('reveal').onclick=()=>{shown=!shown;layout(true)};
+$('load').onclick=async()=>{const r=await pywebview.api.pick_file();if(r&&r.error)return msg(r.error,true);if(r&&r.text!==undefined){const b=box();b.value=r.text;msg('Loaded '+r.name)}};
+$('cancel').onclick=()=>pywebview.api.cancel();
+document.addEventListener('keydown',e=>{
+ if(e.key==='Escape'){e.preventDefault();pywebview.api.cancel()}
+ if(e.key==='Enter'&&((e.target===$('secretArea')&&e.metaKey)||e.target.tagName==='INPUT')){e.preventDefault();submit()}
+});
+window.addEventListener('pywebviewready',init);
+</script></body></html>
